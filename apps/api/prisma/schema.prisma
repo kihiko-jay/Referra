@@ -1,0 +1,490 @@
+// ReferraIOS data model.
+//
+// Money is stored as integer KES cents everywhere (`*Cents` / Int). Real value
+// movement is recorded in an append-only double-entry ledger (LedgerTransaction
+// + LedgerEntry); LedgerAccount.balanceCents is the materialized balance kept in
+// lockstep inside the same DB transaction. "Pending" agent balances are derived
+// from conversions awaiting approval, not from the ledger.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  BUSINESS_OWNER
+  AGENT
+}
+
+enum SubscriptionPlan {
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum AgentStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum RewardType {
+  PERCENTAGE
+  FIXED
+}
+
+enum CampaignStatus {
+  ACTIVE
+  DRAFT
+  EXPIRED
+}
+
+enum LeadStatus {
+  PENDING
+  CONVERTED
+  DISQUALIFIED
+}
+
+enum ConversionStatus {
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  REJECTED
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVED
+  FAILED
+}
+
+enum LedgerAccountKind {
+  BUSINESS_AVAILABLE
+  AGENT_AVAILABLE
+  AGENT_PAYOUT_PENDING
+  PLATFORM_REVENUE
+  MPESA_CLEARING
+  FLW_CLEARING
+  STRIPE_CLEARING
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerTxnType {
+  DEPOSIT
+  COMMISSION_PAYOUT
+  PLATFORM_FEE
+  PAYOUT_HOLD
+  PAYOUT_SETTLE
+  PAYOUT_REVERSE
+  REVERSAL
+}
+
+enum PaymentProvider {
+  MPESA
+  FLUTTERWAVE
+  STRIPE
+}
+
+enum PaymentIntentType {
+  DEPOSIT
+  PAYOUT
+}
+
+enum PaymentIntentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum VerificationTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+enum AiFeature {
+  PITCH
+  LEAD_SCORE
+  CAMPAIGN_OPTIMIZE
+  ANALYTICS_ASK
+}
+
+// ---------------------------------------------------------------------------
+// Identity & tenancy
+// ---------------------------------------------------------------------------
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  phone           String?
+  role            UserRole
+  passwordHash    String
+  avatarUrl       String?
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  ownedBusinesses Business[]            @relation("BusinessOwner")
+  agent           Agent?
+  refreshTokens   RefreshToken[]
+  verifications   VerificationToken[]
+  auditLogs       AuditLog[]
+  aiInteractions  AiInteraction[]
+
+  @@index([role])
+}
+
+model Business {
+  id              String           @id @default(cuid())
+  name            String
+  logoUrl         String?
+  industry        String
+  location        String
+  website         String
+  mpesaTillNumber String?
+  subscriptionPlan SubscriptionPlan @default(STARTER)
+  ownerId         String
+  owner           User             @relation("BusinessOwner", fields: [ownerId], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  campaigns      Campaign[]
+  subscription   Subscription?
+  ledgerAccounts LedgerAccount[]
+  paymentIntents PaymentIntent[]
+
+  @@index([ownerId])
+}
+
+model Agent {
+  id          String      @id @default(cuid())
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id])
+  status      AgentStatus @default(PENDING)
+  mpesaNumber String
+  rating      Float       @default(5)
+  joinedDate  DateTime    @default(now())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  referralLinks  ReferralLink[]
+  ledgerAccounts LedgerAccount[]
+  payoutRequests PayoutRequest[]
+  paymentIntents PaymentIntent[]
+}
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  businessId             String             @unique
+  business               Business           @relation(fields: [businessId], references: [id])
+  plan                   SubscriptionPlan
+  status                 SubscriptionStatus @default(TRIALING)
+  provider               PaymentProvider    @default(STRIPE)
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  currentPeriodEnd       DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Referral engine
+// ---------------------------------------------------------------------------
+
+model Campaign {
+  id           String         @id @default(cuid())
+  businessId   String
+  business     Business       @relation(fields: [businessId], references: [id])
+  title        String
+  description  String
+  rewardType   RewardType
+  rewardValue  Float
+  productPriceCents Int
+  terms        String
+  status       CampaignStatus @default(DRAFT)
+  expiryDate   DateTime
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  referralLinks ReferralLink[]
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model ReferralLink {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  agentId    String
+  agent      Agent    @relation(fields: [agentId], references: [id])
+  uniqueCode String   @unique
+  createdAt  DateTime @default(now())
+
+  clicks      Click[]
+  leads       Lead[]
+  conversions Conversion[]
+
+  @@unique([campaignId, agentId])
+  @@index([agentId])
+}
+
+model Click {
+  id             String       @id @default(cuid())
+  referralLinkId String
+  referralLink   ReferralLink @relation(fields: [referralLinkId], references: [id])
+  ipAddress      String
+  userAgent      String
+  referrer       String?
+  location       String
+  createdAt      DateTime     @default(now())
+
+  @@index([referralLinkId])
+}
+
+model Lead {
+  id             String       @id @default(cuid())
+  referralLinkId String
+  referralLink   ReferralLink @relation(fields: [referralLinkId], references: [id])
+  customerName   String
+  customerEmail  String
+  customerPhone  String
+  status         LeadStatus   @default(PENDING)
+  notes          String?
+  fraudScore     Float?
+  fraudFlags     String[]     @default([])
+  createdAt      DateTime     @default(now())
+
+  conversion Conversion?
+
+  @@index([referralLinkId])
+  @@index([status])
+}
+
+model Conversion {
+  id                  String           @id @default(cuid())
+  leadId              String           @unique
+  lead                Lead             @relation(fields: [leadId], references: [id])
+  referralLinkId      String
+  referralLink        ReferralLink     @relation(fields: [referralLinkId], references: [id])
+  amountCents         Int
+  commissionCents     Int
+  status              ConversionStatus @default(PENDING_APPROVAL)
+  ledgerTransactionId String?
+  createdAt           DateTime         @default(now())
+  approvedAt          DateTime?
+
+  @@index([referralLinkId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Double-entry ledger
+// ---------------------------------------------------------------------------
+
+model LedgerAccount {
+  id           String            @id @default(cuid())
+  code         String            @unique // e.g. "agent:<id>:available"
+  kind         LedgerAccountKind
+  businessId   String?
+  business     Business?         @relation(fields: [businessId], references: [id])
+  agentId      String?
+  agent        Agent?            @relation(fields: [agentId], references: [id])
+  balanceCents Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  entries LedgerEntry[]
+
+  @@index([kind])
+}
+
+model LedgerTransaction {
+  id          String        @id @default(cuid())
+  type        LedgerTxnType
+  reference   String
+  description String
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+
+  entries LedgerEntry[]
+
+  @@index([type])
+}
+
+model LedgerEntry {
+  id            String            @id @default(cuid())
+  transactionId String
+  transaction   LedgerTransaction @relation(fields: [transactionId], references: [id])
+  accountId     String
+  account       LedgerAccount     @relation(fields: [accountId], references: [id])
+  direction     LedgerDirection
+  amountCents   Int
+  createdAt     DateTime          @default(now())
+
+  @@index([transactionId])
+  @@index([accountId])
+}
+
+// ---------------------------------------------------------------------------
+// Payments & payouts
+// ---------------------------------------------------------------------------
+
+model PayoutRequest {
+  id                 String       @id @default(cuid())
+  agentId            String
+  agent              Agent        @relation(fields: [agentId], references: [id])
+  amountCents        Int
+  status             PayoutStatus @default(PENDING)
+  mpesaNumber        String
+  mpesaReceiptNumber String?
+  holdTxnId          String? // PAYOUT_HOLD ledger txn reserving funds
+  settleTxnId        String? // PAYOUT_SETTLE / PAYOUT_REVERSE ledger txn
+  createdAt          DateTime     @default(now())
+  completedAt        DateTime?
+
+  paymentIntent PaymentIntent?
+
+  @@index([agentId])
+  @@index([status])
+}
+
+model PaymentIntent {
+  id          String              @id @default(cuid())
+  provider    PaymentProvider
+  type        PaymentIntentType
+  status      PaymentIntentStatus @default(PENDING)
+  amountCents Int
+  phone       String?
+  providerRef String? // CheckoutRequestID / tx_ref / transaction id
+  receipt     String? // M-PESA receipt / provider receipt
+  businessId  String?
+  business    Business?           @relation(fields: [businessId], references: [id])
+  agentId     String?
+  agent       Agent?              @relation(fields: [agentId], references: [id])
+  payoutId    String?             @unique
+  payout      PayoutRequest?      @relation(fields: [payoutId], references: [id])
+  metadata    Json?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([provider, providerRef])
+  @@index([status])
+}
+
+model WebhookEvent {
+  id          String          @id @default(cuid())
+  provider    PaymentProvider
+  eventType   String
+  externalId  String
+  status      WebhookStatus   @default(RECEIVED)
+  payload     Json
+  error       String?
+  receivedAt  DateTime        @default(now())
+  processedAt DateTime?
+
+  @@unique([provider, externalId])
+  @@index([status])
+}
+
+model IdempotencyKey {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  scope      String
+  statusCode Int?
+  response   Json?
+  createdAt  DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Auth, audit, AI
+// ---------------------------------------------------------------------------
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  id        String                @id @default(cuid())
+  userId    String
+  user      User                  @relation(fields: [userId], references: [id])
+  type      VerificationTokenType
+  tokenHash String                @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime              @default(now())
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actor       User?    @relation(fields: [actorUserId], references: [id])
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+}
+
+model AiInteraction {
+  id               String    @id @default(cuid())
+  userId           String?
+  user             User?     @relation(fields: [userId], references: [id])
+  businessId       String?
+  feature          AiFeature
+  provider         String
+  model            String
+  promptTokens     Int       @default(0)
+  completionTokens Int       @default(0)
+  costCents        Int       @default(0)
+  latencyMs        Int       @default(0)
+  request          Json?
+  response         Json?
+  createdAt        DateTime  @default(now())
+
+  @@index([feature])
+  @@index([businessId])
+}
