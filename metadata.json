@@ -1,0 +1,6 @@
+{
+  "name": "ReferraIOS",
+  "description": "Africa's first referral and commission operating system enabling businesses to track leads, automate payouts, and acquire customers through referral networks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
