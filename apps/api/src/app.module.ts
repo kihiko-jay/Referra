@@ -15,6 +15,9 @@ import { ReferralLinksModule } from './referral-links/referral-links.module';
 import { AgentsModule } from './agents/agents.module';
 import { LeadsModule } from './leads/leads.module';
 import { TrackingModule } from './tracking/tracking.module';
+import { PaymentsModule } from './payments/payments.module';
+import { BillingModule } from './billing/billing.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
@@ -39,6 +42,9 @@ import { HealthController } from './health/health.controller';
     AgentsModule,
     LeadsModule,
     TrackingModule,
+    PaymentsModule,
+    BillingModule,
+    WebhooksModule,
     AuthModule,
   ],
   controllers: [HealthController],

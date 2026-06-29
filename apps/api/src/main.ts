@@ -8,7 +8,11 @@ import { AppModule } from './app.module';
 import type { Env } from './config/env';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  // rawBody is required to verify Stripe webhook signatures.
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: false,
+    rawBody: true,
+  });
   const config = app.get(ConfigService<Env, true>);
 
   app.setGlobalPrefix('api');
