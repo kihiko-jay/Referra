@@ -18,6 +18,7 @@ import { TrackingModule } from './tracking/tracking.module';
 import { PaymentsModule } from './payments/payments.module';
 import { BillingModule } from './billing/billing.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
@@ -45,6 +46,7 @@ import { HealthController } from './health/health.controller';
     PaymentsModule,
     BillingModule,
     WebhooksModule,
+    AiModule,
     AuthModule,
   ],
   controllers: [HealthController],
