@@ -44,7 +44,7 @@ interface AppContextType {
 
   // Actions
   addNewCampaign: (campaign: Omit<Campaign, "id" | "clicksCount" | "leadsCount" | "conversionsCount">) => void;
-  addNewAgent: (agent: Omit<Agent, "id" | "joinedDate" | "status" | "rating">) => void;
+  addNewAgent: (agent: Omit<Agent, "id" | "userId" | "joinedDate" | "status" | "rating">) => void;
   generateReferralLink: (campaignId: string, agentId: string) => ReferralLink;
   trackClick: (referralLinkId: string, ip?: string, location?: string) => void;
   recordLead: (referralLinkId: string, name: string, email: string, phone: string, notes?: string) => void;
@@ -187,7 +187,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Onboard new sales agents
-  const addNewAgent = (agent: Omit<Agent, "id" | "joinedDate" | "status" | "rating">) => {
+  const addNewAgent = (agent: Omit<Agent, "id" | "userId" | "joinedDate" | "status" | "rating">) => {
     const id = `agent_${Date.now()}`;
     const userId = `user_${id}`;
     

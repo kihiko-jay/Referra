@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# monorepo
+.turbo/
+*.tsbuildinfo
+dist/

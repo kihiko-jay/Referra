@@ -1,20 +1,52 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# ReferraIOS
 
-# Run and deploy your AI Studio app
+Africa's referral & commission operating system — businesses track leads,
+automate M-PESA/Flutterwave payouts, and acquire customers through referral
+agent networks.
 
-This contains everything you need to run your app locally.
+> Re-platformed from a Google AI Studio prototype into a production SaaS.
 
-View your app in AI Studio: https://ai.studio/apps/f369e746-e895-4f7f-b7f6-004098d40e82
+## Monorepo layout
 
-## Run Locally
+```
+apps/
+  web/        Vite + React 19 + Tailwind frontend
+  api/        NestJS backend (REST + webhooks + jobs)   [in progress]
+packages/
+  shared/     Domain types + zod schemas/DTOs (single source of truth)
+  config/     Shared tsconfig bases
+```
 
-**Prerequisites:**  Node.js
+Tooling: **pnpm workspaces + Turborepo**.
 
+## Prerequisites
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- Node.js >= 20
+- pnpm 9 (`corepack enable pnpm`)
+
+## Common commands
+
+```bash
+pnpm install            # install all workspaces
+pnpm dev                # run all apps in dev
+pnpm build              # build everything (turbo)
+pnpm typecheck          # typecheck everything
+pnpm lint               # lint everything
+pnpm test               # test everything
+```
+
+Run a single package, e.g. the web app:
+
+```bash
+pnpm --filter @referraios/web dev
+```
+
+## Status
+
+- [x] Phase 0 — monorepo foundations, shared domain package
+- [ ] Phase 1 — NestJS API, Prisma, auth, multi-tenancy
+- [ ] Phase 2 — referral tracking & attribution
+- [ ] Phase 3 — double-entry ledger + payments (Daraja / Flutterwave / Stripe)
+- [ ] Phase 4 — AI layer (copilot, fraud scoring, optimization, NL analytics)
+- [ ] Phase 5 — frontend wired to the real API
+- [ ] Phase 6–8 — security, observability, tests, CI/CD, deploy
