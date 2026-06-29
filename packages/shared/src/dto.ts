@@ -30,6 +30,17 @@ export const LoginDto = z.object({
 });
 export type LoginDto = z.infer<typeof LoginDto>;
 
+// ----- Businesses -----
+
+export const CreateBusinessDto = z.object({
+  name: z.string().min(2),
+  industry: z.string().min(2),
+  location: z.string().min(2),
+  website: z.string().url(),
+  mpesaTillNumber: z.string().optional(),
+});
+export type CreateBusinessDto = z.infer<typeof CreateBusinessDto>;
+
 // ----- Campaigns -----
 
 export const CreateCampaignDto = CampaignSchema.pick({
@@ -75,12 +86,25 @@ export const ConvertLeadDto = z.object({
 });
 export type ConvertLeadDto = z.infer<typeof ConvertLeadDto>;
 
+// ----- Referral links -----
+
+export const CreateLinkDto = z.object({
+  campaignId: z.string().min(1),
+});
+export type CreateLinkDto = z.infer<typeof CreateLinkDto>;
+
 // ----- Payouts / wallet -----
 
 export const RequestPayoutDto = z.object({
   amount: Money.refine((v) => v > 0, 'Amount must be greater than zero'),
 });
 export type RequestPayoutDto = z.infer<typeof RequestPayoutDto>;
+
+export const ProcessPayoutDto = z.object({
+  approve: z.boolean(),
+  mpesaReceiptNumber: z.string().optional(),
+});
+export type ProcessPayoutDto = z.infer<typeof ProcessPayoutDto>;
 
 export const FundWalletDto = z.object({
   amount: Money.refine((v) => v > 0, 'Amount must be greater than zero'),

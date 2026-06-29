@@ -35,7 +35,29 @@ export class ConversionsService {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
-  async convertLead(leadId: string, customAmountCents?: number) {
+  async listForBusinesses(businessIds: string[]) {
+    return this.prisma.conversion.findMany({
+      where: {
+        referralLink: { campaign: { businessId: { in: businessIds } } },
+      },
+      include: {
+        lead: { select: { customerName: true } },
+        referralLink: {
+          include: {
+            agent: { include: { user: { select: { name: true } } } },
+            campaign: { select: { title: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async convertLead(
+    leadId: string,
+    customAmountCents?: number,
+    ownerBusinessIds?: string[],
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const lead = await tx.lead.findUnique({
         where: { id: leadId },
@@ -49,6 +71,9 @@ export class ConversionsService {
         throw new BadRequestException('Lead is not pending conversion');
       }
       const campaign = lead.referralLink.campaign;
+      if (ownerBusinessIds && !ownerBusinessIds.includes(campaign.businessId)) {
+        throw new ForbiddenException('Not your lead');
+      }
       const saleAmountCents = customAmountCents ?? campaign.productPriceCents;
       const commissionCents = computeCommissionCents({
         rewardType: campaign.rewardType,

@@ -9,6 +9,12 @@ import { LedgerModule } from './ledger/ledger.module';
 import { ConversionsModule } from './conversions/conversions.module';
 import { PayoutsModule } from './payouts/payouts.module';
 import { WalletModule } from './wallet/wallet.module';
+import { BusinessesModule } from './businesses/businesses.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
+import { ReferralLinksModule } from './referral-links/referral-links.module';
+import { AgentsModule } from './agents/agents.module';
+import { LeadsModule } from './leads/leads.module';
+import { TrackingModule } from './tracking/tracking.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
@@ -27,6 +33,12 @@ import { HealthController } from './health/health.controller';
     ConversionsModule,
     PayoutsModule,
     WalletModule,
+    BusinessesModule,
+    CampaignsModule,
+    ReferralLinksModule,
+    AgentsModule,
+    LeadsModule,
+    TrackingModule,
     AuthModule,
   ],
   controllers: [HealthController],
