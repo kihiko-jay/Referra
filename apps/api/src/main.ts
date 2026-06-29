@@ -5,6 +5,8 @@ import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
+import { LoggingInterceptor } from './common/logging.interceptor';
 import type { Env } from './config/env';
 
 async function bootstrap(): Promise<void> {
@@ -27,6 +29,8 @@ async function bootstrap(): Promise<void> {
   app.enableCors({ origin: origins, credentials: true });
 
   // Validation is handled per-route via zod pipes (see ZodValidationPipe).
+  app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.enableShutdownHooks();
 
   const port = config.get('PORT', { infer: true });
